@@ -17,7 +17,7 @@ except ImportError:
 
 # --- Configuration ---
 TOKEN = os.environ.get('DISCORD_TOKEN', '')  # Set via environment variable
-LIBRETRANSLATE_URL = 'https://libretranslate-3quk.onrender.com/translate'
+LIBRETRANSLATE_URL = 'https://libretranslate-fe11.onrender.com/translate'
 DB_NAME = 'translator_bot.db'
 DAILY_LIMIT = 10
 
