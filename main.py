@@ -329,10 +329,29 @@ async def on_raw_reaction_add(payload):
     elif result:
         await channel.send(result, delete_after=10)
 
+# --- Health Check Server (for Render free Web Service) ---
+from aiohttp import web
+
+async def health_handler(request):
+    return web.Response(text="Luspa bot is running!")
+
+async def start_health_server():
+    app = web.Application()
+    app.router.add_get('/', health_handler)
+    port = int(os.environ.get('PORT', 10000))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f'Health server running on port {port}')
+
+# --- Bot Events ---
 @bot.event
 async def on_ready():
     await init_db()
-    # Sync slash commands with Discord
+    # Start health check server for Render
+    bot.loop.create_task(start_health_server())
+    # Sync slash commands
     try:
         synced = await bot.tree.sync()
         print(f'Synced {len(synced)} slash command(s).')
@@ -353,3 +372,4 @@ async def on_command_error(ctx, error):
 
 if __name__ == '__main__':
     bot.run(TOKEN)
+
