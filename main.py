@@ -107,11 +107,11 @@ async def check_and_update_limit(user_id, channel_id, roles):
                 await db.commit()
                 return True
 
-async def translate_text(text, target_lang):
+async def translate_text(text, target_lang, source_lang='en'):
     """Sends text to MyMemory Translation API (free, no hosting needed)."""
     params = {
         'q': text,
-        'langpair': f'autodetect|{target_lang}'
+        'langpair': f'{source_lang}|{target_lang}'
     }
     try:
         async with aiohttp.ClientSession() as session:
