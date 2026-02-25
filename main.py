@@ -15,6 +15,7 @@ except ImportError:
 # --- Configuration ---
 TOKEN = os.environ.get('DISCORD_TOKEN', '')  # Set via environment variable
 TRANSLATE_API_URL = 'https://api.mymemory.translated.net/get'
+MYMEMORY_EMAIL = os.environ.get('MYMEMORY_EMAIL', '')  # Set email for 50k words/day (free)
 
 # --- Flag Emoji to Language Code Mapping ---
 FLAG_TO_LANG = {
@@ -34,23 +35,21 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # --- Helper Functions ---
 async def translate_text(text, target_lang, source_lang='autodetect'):
-    """Sends text to MyMemory Translation API (free, no hosting needed)."""
+    """Sends text to MyMemory Translation API."""
     params = {
         'q': text,
         'langpair': f'{source_lang}|{target_lang}'
     }
+    if MYMEMORY_EMAIL:
+        params['de'] = MYMEMORY_EMAIL
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(TRANSLATE_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     data = await response.json()
-                    details = data.get('responseDetails', '')
-                    # If same language error, try auto-detect
-                    if 'DISTINCT LANGUAGES' in str(details).upper():
-                        if source_lang != 'autodetect':
-                            return await translate_text(text, target_lang, source_lang='autodetect')
-                        return "This text appears to already be in the target language."
-                    if data.get('responseStatus') == 200:
+                    status = data.get('responseStatus')
+                    details = str(data.get('responseDetails', ''))
+                    if status == 200:
                         return data['responseData']['translatedText']
                     else:
                         return f"Error: Translation failed ({details or 'Unknown error'})"
@@ -112,6 +111,23 @@ async def translate_context_menu(interaction: discord.Interaction, message: disc
         title="Translation → EN",
         description=result,
         color=discord.Color.green()
+    )
+    embed.set_footer(text=f"Original by {message.author.display_name} • Translated by {interaction.user.display_name}")
+    await interaction.followup.send(embed=embed)
+
+@bot.tree.context_menu(name='Translate to Russian')
+async def translate_to_russian(interaction: discord.Interaction, message: discord.Message):
+    """Right-click a message → Apps → Translate to Russian"""
+    if not message.content:
+        await interaction.response.send_message("This message has no text to translate.", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+    result = await translate_text(message.content, 'ru')
+    embed = discord.Embed(
+        title="Translation → RU",
+        description=result,
+        color=discord.Color.red()
     )
     embed.set_footer(text=f"Original by {message.author.display_name} • Translated by {interaction.user.display_name}")
     await interaction.followup.send(embed=embed)
