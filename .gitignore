@@ -1,0 +1,6 @@
+# Ignore database and system files
+translator_bot.db
+__pycache__/
+*.pyc
+LibreTranslate/
+.env
