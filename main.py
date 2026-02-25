@@ -17,7 +17,7 @@ except ImportError:
 
 # --- Configuration ---
 TOKEN = os.environ.get('DISCORD_TOKEN', '')  # Set via environment variable
-LIBRETRANSLATE_URL = 'https://libretranslate-fe11.onrender.com/translate'
+TRANSLATE_API_URL = 'https://api.mymemory.translated.net/get'
 DB_NAME = 'translator_bot.db'
 DAILY_LIMIT = 10
 
@@ -108,23 +108,26 @@ async def check_and_update_limit(user_id, channel_id, roles):
                 return True
 
 async def translate_text(text, target_lang):
-    """Sends text to LibreTranslate API."""
-    payload = {
+    """Sends text to MyMemory Translation API (free, no hosting needed)."""
+    params = {
         'q': text,
-        'source': 'auto',
-        'target': target_lang,
-        'format': 'text'
+        'langpair': f'autodetect|{target_lang}'
     }
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(LIBRETRANSLATE_URL, data=payload, timeout=5) as response:
+            async with session.get(TRANSLATE_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     data = await response.json()
-                    return data.get('translatedText')
+                    if data.get('responseStatus') == 200:
+                        return data['responseData']['translatedText']
+                    else:
+                        return f"Error: Translation failed ({data.get('responseDetails', 'Unknown error')})"
                 else:
-                    return f"Error: LibreTranslate returned status {response.status}"
+                    return f"Error: Translation API returned status {response.status}"
+    except asyncio.TimeoutError:
+        return "Error: Translation request timed out"
     except Exception as e:
-        return f"Error: Could not connect to LibreTranslate ({str(e)})"
+        return f"Error: Could not connect to translation service ({str(e)})"
 
 # --- Prefix Commands ---
 @bot.command()
