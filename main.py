@@ -33,7 +33,7 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # --- Helper Functions ---
-async def translate_text(text, target_lang, source_lang='en'):
+async def translate_text(text, target_lang, source_lang='autodetect'):
     """Sends text to MyMemory Translation API (free, no hosting needed)."""
     params = {
         'q': text,
@@ -44,10 +44,16 @@ async def translate_text(text, target_lang, source_lang='en'):
             async with session.get(TRANSLATE_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     data = await response.json()
+                    details = data.get('responseDetails', '')
+                    # If same language error, try auto-detect
+                    if 'DISTINCT LANGUAGES' in str(details).upper():
+                        if source_lang != 'autodetect':
+                            return await translate_text(text, target_lang, source_lang='autodetect')
+                        return "This text appears to already be in the target language."
                     if data.get('responseStatus') == 200:
                         return data['responseData']['translatedText']
                     else:
-                        return f"Error: Translation failed ({data.get('responseDetails', 'Unknown error')})"
+                        return f"Error: Translation failed ({details or 'Unknown error'})"
                 else:
                     return f"Error: Translation API returned status {response.status}"
     except asyncio.TimeoutError:
