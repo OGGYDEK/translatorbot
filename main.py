@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import aiohttp
 import os
 import asyncio
@@ -16,6 +16,7 @@ except ImportError:
 TOKEN = os.environ.get('DISCORD_TOKEN', '')  # Set via environment variable
 TRANSLATE_API_URL = 'https://api.mymemory.translated.net/get'
 MYMEMORY_EMAIL = os.environ.get('MYMEMORY_EMAIL', '')  # Set email for 50k words/day (free)
+SELF_PING_URL = os.environ.get('SELF_PING_URL')  # URL to ping every 5 minutes
 
 # --- Flag Emoji to Language Code Mapping ---
 FLAG_TO_LANG = {
@@ -188,10 +189,32 @@ async def start_health_server():
     await site.start()
     print(f'Health server running on port {port}')
 
+@tasks.loop(minutes=5)
+async def keep_alive():
+    """Pings the health server to keep the bot active."""
+    if not SELF_PING_URL:
+        return
+        
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(SELF_PING_URL, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                if response.status == 200:
+                    print(f"Self-ping successful: {await response.text()}")
+                else:
+                    print(f"Self-ping failed with status {response.status}")
+    except Exception as e:
+        print(f"Self-ping error: {e}")
+
 # --- Bot Events ---
 @bot.event
 async def on_ready():
     bot.loop.create_task(start_health_server())
+    if SELF_PING_URL:
+        if not keep_alive.is_running():
+            keep_alive.start()
+            print(f"Started keep-alive pings to {SELF_PING_URL}")
+    else:
+        print("SELF_PING_URL not set, keep-alive task disabled.")
     try:
         synced = await bot.tree.sync()
         print(f'Synced {len(synced)} slash command(s).')
